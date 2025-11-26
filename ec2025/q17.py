@@ -149,7 +149,6 @@ def part3(data: list[str]) -> str:
                     volcano_grid[i, j] = grid[i][j]
         volcano_grid[start] = 0
         min_found = dijkstra(volcano_grid, start, volcano, 30 * (R + 1))
-        print(R, min_found)
         if min_found < 30 * (R + 1):
             return min_found * R
         R += 1
