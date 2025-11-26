@@ -19,8 +19,8 @@ def part1(data: list[str]) -> str:
             if grid[i][j] == '@':
                 volcano = i, j
                 break
-            if volcano is not None:
-                break
+        if volcano is not None:
+            break
     total = 0
     for i in range(N):
         for j in range(M):
