@@ -110,9 +110,9 @@ def dijkstra(grid: dict[tuple[int, int], int], start, centre, limit):
             adj_cell_z = cell_z
             if adj_cell_y < centre[1]:
                 if cell_x < centre[0] <= adj_cell_x:
-                    adj_cell_z += 1
+                    adj_cell_z = 1
                 elif adj_cell_x < centre[0] <= cell_x:
-                    adj_cell_z -= 1
+                    adj_cell_z = 0
             adj_cell = (adj_cell_x, adj_cell_y, adj_cell_z)
             if adj_cell in unvisited:
                 distances[adj_cell] = min(distances[adj_cell], dist + grid[(adj_cell[0], adj_cell[1])])
