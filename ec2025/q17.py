@@ -1,158 +1,129 @@
-from utils import part1_decorator, part2_decorator, part3_decorator
-import itertools
 import heapq
-
+import math
+from utils import part1_decorator, part2_decorator, part3_decorator
 
 def process_data(data: list[str]):
     return [[int(x) if x.isdigit() else x for x in line.strip()] for line in data]
 
+def find_locations(grid):
+    volcano, start = None, None
+    for r, row in enumerate(grid):
+        for c, val in enumerate(row):
+            if val == '@':
+                volcano = (r, c)
+            elif val == 'S':
+                start = (r, c)
+    return volcano, start
+
+def get_power_value(val: int | str):
+    return val if isinstance(val, int) else 0
 
 @part1_decorator
-def part1(data: list[str]) -> str:
+def part1(data: list[str]):
     grid = process_data(data)
-    R = 10
-    N = len(grid)
-    M = len(grid[0])
-    volcano = None
-    for i in range(N):
-        for j in range(M):
-            if grid[i][j] == '@':
-                volcano = i, j
-                break
-        if volcano is not None:
-            break
+    volcano, _ = find_locations(grid)
+    if not volcano:
+        return 0
+
+    vr, vc = volcano
+    radius = 10
     total = 0
-    for i in range(N):
-        for j in range(M):
-            if (i, j) != volcano and (i - volcano[0])**2 + (j - volcano[1])**2 <= R * R:
-                total += grid[i][j]
+    rows, cols = len(grid), len(grid[0])
+
+    r_min = max(0, vr - radius)
+    r_max = min(rows, vr + radius + 1)
+    
+    for r in range(r_min, r_max):
+        for c in range(cols): 
+            if (r - vr)**2 + (c - vc)**2 <= radius**2:
+                if (r, c) != volcano:
+                    total += get_power_value(grid[r][c])
     return total
 
-
-
 @part2_decorator
-def part2(data: list[str]) -> str:
+def part2(data: list[str]) -> int:
     grid = process_data(data)
-    N = len(grid)
-    M = len(grid[0])
-    volcano = None
-    for i in range(N):
-        for j in range(M):
-            if grid[i][j] == '@':
-                volcano = i, j
-                break
-        if volcano is not None:
-            break
-    max_dest = 0
-    max_r = 0
-    for r in range(N):
-        total = 0
-        for i in range(N):
-            for j in range(M):
-                if (i, j) != volcano and (r - 1) * (r - 1) < (i - volcano[0])**2 + (j - volcano[1])**2 <= r * r:
-                    total += grid[i][j]
-        if max_dest < total:
-            max_dest = total
-            max_r = r
-    return max_r * max_dest
+    volcano, _ = find_locations(grid)
+    if not volcano:
+        return 0
 
-
-class PriorityQueue():
-    def __init__(self):
-        self.pq = []
-        self.entry_finder = {}
-        self.REMOVED = '<removed-task>'
-        self.counter = itertools.count()
-
-    def add_task(self, task, priority=0):
-        if task in self.entry_finder:
-            self.remove_task(task)
-        count = next(self.counter)
-        entry = [priority, count, task]
-        self.entry_finder[task] = entry
-        heapq.heappush(self.pq, entry)
-
-    def remove_task(self, task):
-        entry = self.entry_finder.pop(task)
-        entry[-1] = self.REMOVED
-
-    def pop_task(self):
-        while self.pq:
-            priority, count, task = heapq.heappop(self.pq)
-            if task is not self.REMOVED:
-                del self.entry_finder[task]
-                return task
-        raise KeyError('pop from an empty priority queue')
-
-def dijkstra(grid: dict[tuple[int, int], int], start, centre, limit):
-    unvisited = set()
-    for x, y in grid:
-        unvisited.add((x, y, 0))
-        unvisited.add((x, y, 1))
+    vr, vc = volcano
+    radius_sums = {}
     
-    distances = {node: float('inf') for node in unvisited}
-    new_start = (start[0], start[1], 0)
-    new_end = (start[0], start[1], 1)
-    distances[new_start] = 0
-    queue = PriorityQueue()
-    queue.add_task(new_start, 0)
-    while True:
-        cell = queue.pop_task()
-        dist = distances[cell]
-        if cell == new_end:
-            break
-        if dist > limit:
+    rows = len(grid)
+    cols = len(grid[0])
+
+    for r in range(rows):
+        for c in range(cols):
+            if (r, c) == volcano:
+                continue
+            
+            val = get_power_value(grid[r][c])
+            if val == 0:
+                continue
+
+            dist_sq = (r - vr)**2 + (c - vc)**2
+            dist = math.sqrt(dist_sq)
+            ring_radius = math.ceil(dist)
+            
+            radius_sums[ring_radius] = radius_sums.get(ring_radius, 0) + val
+
+    max_r, max_val = max(radius_sums.items(), key=lambda t: t[1])
+            
+    return max_r * max_val
+
+def solve_dijkstra(grid, start, volcano, min_radius):
+    rows, cols = len(grid), len(grid[0])
+    vr, vc = volcano
+    pq = [(0, start[0], start[1], 0)]
+    min_costs = {} 
+    min_costs[(start[0], start[1], 0)] = 0
+    
+    limit_sq = min_radius * min_radius
+    cost_limit = 30 * (min_radius + 1)
+
+    while pq:
+        cost, r, c, phase = heapq.heappop(pq)
+
+        if cost > cost_limit:
             return float('inf')
-        cell_x, cell_y, cell_z = cell
-        for dir_x, dir_y in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
-            adj_cell_x = cell_x + dir_x
-            adj_cell_y = cell_y + dir_y
-            adj_cell_z = cell_z
-            if adj_cell_y < centre[1]:
-                if cell_x < centre[0] <= adj_cell_x:
-                    adj_cell_z = 1
-                elif adj_cell_x < centre[0] <= cell_x:
-                    adj_cell_z = 0
-            adj_cell = (adj_cell_x, adj_cell_y, adj_cell_z)
-            if adj_cell in unvisited:
-                distances[adj_cell] = min(distances[adj_cell], dist + grid[(adj_cell[0], adj_cell[1])])
-                queue.add_task(adj_cell, distances[adj_cell])
-        unvisited.remove(cell)
-    return distances[new_end]
+        if (r, c, phase) == (start[0], start[1], 1):
+            return cost
+        if cost > min_costs.get((r, c, phase), float('inf')):
+            continue
 
+        for dr, dc in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
+            nr, nc = r + dr, c + dc
+            if not (0 <= nr < rows and 0 <= nc < cols):
+                continue
+            n_phase = phase
+            if nc < vc:
+                if r < vr <= nr:
+                    n_phase = 1
+                elif nr < vr <= r:
+                    n_phase = 0
+            if (nr - vr)**2 + (nc - vc)**2 <= limit_sq:
+                continue
 
+            val = get_power_value(grid[nr][nc])
+            new_cost = cost + val
+            state = (nr, nc, n_phase)
+            if new_cost < min_costs.get(state, float('inf')):
+                min_costs[state] = new_cost
+                heapq.heappush(pq, (new_cost, nr, nc, n_phase))
+
+    return float('inf')
 
 @part3_decorator
-def part3(data: list[str]) -> str:
+def part3(data: list[str]) -> int:
     grid = process_data(data)
-    N = len(grid)
-    M = len(grid[0])
-    volcano = None
-    start = None
-    for i in range(N):
-        for j in range(M):
-            if grid[i][j] == '@':
-                volcano = i, j
-            if grid[i][j] == 'S':
-                start = i, j
-            if volcano is not None and start is not None:
-                break
-        if volcano is not None and start is not None:
-            break
-    
+    volcano, start = find_locations(grid)
     R = 0
     while True:
-        volcano_grid = {}
-        for i in range(N):
-            for j in range(M):
-                if (i - volcano[0])**2 + (j - volcano[1])**2 > R * R:
-                    volcano_grid[i, j] = grid[i][j]
-        volcano_grid[start] = 0
-        min_found = dijkstra(volcano_grid, start, volcano, 30 * (R + 1))
+        min_found = solve_dijkstra(grid, start, volcano, R)
         if min_found < 30 * (R + 1):
             return min_found * R
         R += 1
-
 
 if __name__ == '__main__':
     part1()
